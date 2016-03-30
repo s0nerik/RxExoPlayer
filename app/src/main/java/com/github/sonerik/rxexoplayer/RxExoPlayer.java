@@ -5,6 +5,7 @@ import android.support.annotation.NonNull;
 
 import com.google.android.exoplayer.ExoPlaybackException;
 import com.google.android.exoplayer.ExoPlayer;
+import com.google.android.exoplayer.MediaFormat;
 import com.google.android.exoplayer.TrackRenderer;
 
 import rx.Observable;
@@ -256,4 +257,53 @@ public abstract class RxExoPlayer {
                 })
                 .take(1);
     }
+
+    // region Delegated methods
+
+    public void blockingSendMessage(ExoPlayer.ExoPlayerComponent target, int messageType, Object message) {
+        innerPlayer.blockingSendMessage(target, messageType, message);
+    }
+
+    public long getDuration() {
+        return innerPlayer.getDuration();
+    }
+
+    public long getBufferedPosition() {
+        return innerPlayer.getBufferedPosition();
+    }
+
+    public void setSelectedTrack(int rendererIndex, int trackIndex) {
+        innerPlayer.setSelectedTrack(rendererIndex, trackIndex);
+    }
+
+    public int getSelectedTrack(int rendererIndex) {
+        return innerPlayer.getSelectedTrack(rendererIndex);
+    }
+
+    public int getBufferedPercentage() {
+        return innerPlayer.getBufferedPercentage();
+    }
+
+    public void release() {
+        innerPlayer.release();
+    }
+
+    public int getPlaybackState() {
+        return innerPlayer.getPlaybackState();
+    }
+
+    public int getTrackCount(int rendererIndex) {
+        return innerPlayer.getTrackCount(rendererIndex);
+    }
+
+    public MediaFormat getTrackFormat(int rendererIndex, int trackIndex) {
+        return innerPlayer.getTrackFormat(rendererIndex, trackIndex);
+    }
+
+    public void sendMessage(ExoPlayer.ExoPlayerComponent target, int messageType, Object message) {
+        innerPlayer.sendMessage(target, messageType, message);
+    }
+
+    // endregion
+
 }
