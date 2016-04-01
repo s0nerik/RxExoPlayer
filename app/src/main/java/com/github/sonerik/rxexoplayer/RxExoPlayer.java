@@ -31,10 +31,27 @@ public abstract class RxExoPlayer {
     protected SerializedSubject<PlayerEvent, PlayerEvent> playerSubject = PublishSubject.<PlayerEvent>create().toSerialized();
     protected SerializedSubject<ExoPlaybackException, ExoPlaybackException> errorSubject = PublishSubject.<ExoPlaybackException>create().toSerialized();
 
+    protected Observable<PlayerEvent> readyObservable       = eventProvider(PlayerEvent.READY     );
+    protected Observable<PlayerEvent> preparingObservable   = eventProvider(PlayerEvent.PREPARING );
+    protected Observable<PlayerEvent> bufferingObservable   = eventProvider(PlayerEvent.BUFFERING );
+    protected Observable<PlayerEvent> startedObservable     = eventProvider(PlayerEvent.STARTED   );
+    protected Observable<PlayerEvent> pausedObservable      = eventProvider(PlayerEvent.PAUSED    );
+    protected Observable<PlayerEvent> endedObservable       = eventProvider(PlayerEvent.ENDED     );
+    protected Observable<PlayerEvent> idleObservable        = eventProvider(PlayerEvent.IDLE      );
+
     protected int lastState = STATE_IDLE;
 
     public enum PlayerEvent {
         READY, PREPARING, BUFFERING, STARTED, PAUSED, ENDED, IDLE
+    }
+
+    private Observable<PlayerEvent> eventProvider(final PlayerEvent e) {
+        return playerSubject.filter(new Func1<PlayerEvent, Boolean>() {
+            @Override
+            public Boolean call(PlayerEvent event) {
+                return event == e;
+            }
+        });
     }
 
     public Observable<PlayerEvent> events() {
@@ -42,12 +59,24 @@ public abstract class RxExoPlayer {
     }
 
     public Observable<PlayerEvent> event(final PlayerEvent e) {
-        return playerSubject.filter(new Func1<PlayerEvent, Boolean>() {
-            @Override
-            public Boolean call(PlayerEvent event) {
-                return event == e;
-            }
-        });
+        switch (e) {
+            case READY:
+                return readyObservable;
+            case PREPARING:
+                return preparingObservable;
+            case BUFFERING:
+                return bufferingObservable;
+            case STARTED:
+                return startedObservable;
+            case PAUSED:
+                return pausedObservable;
+            case ENDED:
+                return endedObservable;
+            case IDLE:
+                return idleObservable;
+            default:
+                return null;
+        }
     }
 
     public Observable<ExoPlaybackException> errors() {
