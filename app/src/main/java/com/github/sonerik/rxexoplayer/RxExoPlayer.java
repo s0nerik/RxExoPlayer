@@ -46,7 +46,7 @@ public abstract class RxExoPlayer {
     }
 
     private Observable<PlayerEvent> eventProvider(final PlayerEvent e) {
-        return playerSubject.filter(new Func1<PlayerEvent, Boolean>() {
+        return events().filter(new Func1<PlayerEvent, Boolean>() {
             @Override
             public Boolean call(PlayerEvent event) {
                 return event == e;
@@ -55,7 +55,7 @@ public abstract class RxExoPlayer {
     }
 
     public Observable<PlayerEvent> events() {
-        return playerSubject;
+        return playerSubject.asObservable();
     }
 
     public Observable<PlayerEvent> event(final PlayerEvent e) {
@@ -149,13 +149,13 @@ public abstract class RxExoPlayer {
                     return Observable.just(PlayerEvent.STARTED);
                 } else {
                     return event(PlayerEvent.STARTED)
-                            .take(1)
                             .doOnSubscribe(new Action0() {
                                 @Override
                                 public void call() {
                                     innerPlayer.setPlayWhenReady(true);
                                 }
-                            });
+                            })
+                            .take(1);
                 }
             }
         });
