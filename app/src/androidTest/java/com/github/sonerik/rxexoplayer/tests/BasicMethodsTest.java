@@ -97,6 +97,7 @@ public class BasicMethodsTest extends ActivityInstrumentationTestCase2<TestActiv
             RxExoPlayer player = getTestPlayer();
             player.prepare(getTestUri())
                   .concatMap(e -> player.start())
+                  .concatMap(e -> player.seekTo(30000))
                   .subscribe(testSubscriber);
         });
 
@@ -104,6 +105,6 @@ public class BasicMethodsTest extends ActivityInstrumentationTestCase2<TestActiv
 
         testSubscriber.assertNoErrors();
         testSubscriber.assertCompleted();
-        testSubscriber.assertValue(RxExoPlayer.PlayerEvent.STARTED);
+        testSubscriber.assertValue(RxExoPlayer.PlayerEvent.READY);
     }
 }
