@@ -25,21 +25,21 @@ import static com.google.android.exoplayer.ExoPlayer.STATE_READY;
 
 public abstract class RxExoPlayer {
 
-    protected ExoPlayer innerPlayer;
-    protected TrackRenderer currentRenderer;
+    private ExoPlayer innerPlayer;
+    private TrackRenderer currentRenderer;
 
-    protected SerializedSubject<PlayerEvent, PlayerEvent> playerSubject = PublishSubject.<PlayerEvent>create().toSerialized();
-    protected SerializedSubject<ExoPlaybackException, ExoPlaybackException> errorSubject = PublishSubject.<ExoPlaybackException>create().toSerialized();
+    private SerializedSubject<PlayerEvent, PlayerEvent> playerSubject = PublishSubject.<PlayerEvent>create().toSerialized();
+    private SerializedSubject<ExoPlaybackException, ExoPlaybackException> errorSubject = PublishSubject.<ExoPlaybackException>create().toSerialized();
 
-    protected Observable<PlayerEvent> readyObservable       = eventProvider(PlayerEvent.READY     );
-    protected Observable<PlayerEvent> preparingObservable   = eventProvider(PlayerEvent.PREPARING );
-    protected Observable<PlayerEvent> bufferingObservable   = eventProvider(PlayerEvent.BUFFERING );
-    protected Observable<PlayerEvent> startedObservable     = eventProvider(PlayerEvent.STARTED   );
-    protected Observable<PlayerEvent> pausedObservable      = eventProvider(PlayerEvent.PAUSED    );
-    protected Observable<PlayerEvent> endedObservable       = eventProvider(PlayerEvent.ENDED     );
-    protected Observable<PlayerEvent> idleObservable        = eventProvider(PlayerEvent.IDLE      );
+    private Observable<PlayerEvent> readyObservable       = eventProvider(PlayerEvent.READY     );
+    private Observable<PlayerEvent> preparingObservable   = eventProvider(PlayerEvent.PREPARING );
+    private Observable<PlayerEvent> bufferingObservable   = eventProvider(PlayerEvent.BUFFERING );
+    private Observable<PlayerEvent> startedObservable     = eventProvider(PlayerEvent.STARTED   );
+    private Observable<PlayerEvent> pausedObservable      = eventProvider(PlayerEvent.PAUSED    );
+    private Observable<PlayerEvent> endedObservable       = eventProvider(PlayerEvent.ENDED     );
+    private Observable<PlayerEvent> idleObservable        = eventProvider(PlayerEvent.IDLE      );
 
-    protected int lastState = STATE_IDLE;
+    private int lastState = STATE_IDLE;
 
     public enum PlayerEvent {
         READY, PREPARING, BUFFERING, STARTED, PAUSED, ENDED, IDLE
@@ -77,6 +77,10 @@ public abstract class RxExoPlayer {
             default:
                 return null;
         }
+    }
+
+    public Observable<PlayerEvent> eventOnce(final PlayerEvent e) {
+        return event(e).take(1);
     }
 
     public Observable<ExoPlaybackException> errors() {
@@ -124,7 +128,6 @@ public abstract class RxExoPlayer {
 
     public RxExoPlayer() {
         innerPlayer = Factory.newInstance(1);
-//        innerPlayer = Factory.newInstance 1, 30 * 1000, 60 * 1000
         innerPlayer.addListener(listener);
         innerPlayer.setPlayWhenReady(false);
     }
@@ -137,10 +140,15 @@ public abstract class RxExoPlayer {
     public boolean isReady() { return innerPlayer.getPlaybackState() == STATE_READY; }
 
     public long getCurrentPosition() { return innerPlayer.getCurrentPosition(); }
+
+    public TrackRenderer getCurrentRenderer() {
+        return currentRenderer;
+    }
     // endregion
 
     protected abstract TrackRenderer getRenderer(Uri uri);
 
+    //region Main functionality
     public Observable<PlayerEvent> start() {
         return Observable.defer(new Func0<Observable<PlayerEvent>>() {
             @Override
@@ -148,14 +156,13 @@ public abstract class RxExoPlayer {
                 if (innerPlayer.getPlayWhenReady()) {
                     return Observable.just(PlayerEvent.STARTED);
                 } else {
-                    return event(PlayerEvent.STARTED)
+                    return eventOnce(PlayerEvent.STARTED)
                             .doOnSubscribe(new Action0() {
                                 @Override
                                 public void call() {
                                     innerPlayer.setPlayWhenReady(true);
                                 }
-                            })
-                            .take(1);
+                            });
                 }
             }
         });
@@ -168,8 +175,7 @@ public abstract class RxExoPlayer {
                     public Observable<PlayerEvent> call(PlayerEvent event) {
                         return start();
                     }
-                })
-                .take(1);
+                });
     }
 
     public Observable<PlayerEvent> pause() {
@@ -179,8 +185,7 @@ public abstract class RxExoPlayer {
                 if (!innerPlayer.getPlayWhenReady()) {
                     return Observable.just(PlayerEvent.PAUSED);
                 } else {
-                    return event(PlayerEvent.PAUSED)
-                            .take(1)
+                    return eventOnce(PlayerEvent.PAUSED)
                             .doOnSubscribe(new Action0() {
                                 @Override
                                 public void call() {
@@ -192,16 +197,24 @@ public abstract class RxExoPlayer {
         });
     }
 
-    public Observable<PlayerEvent> setPaused(boolean flag) {
-        return flag ? pause() : start();
+    public Observable<PlayerEvent> setPaused(final boolean flag) {
+        return Observable.defer(new Func0<Observable<PlayerEvent>>() {
+            @Override
+            public Observable<PlayerEvent> call() {
+                return flag ? pause() : start();
+            }
+        });
     }
 
-    public Observable<PlayerEvent> togglePause() { return setPaused(!isPaused()); }
+    public Observable<PlayerEvent> togglePause() {
+        return Observable.defer(new Func0<Observable<PlayerEvent>>() {
+            @Override
+            public Observable<PlayerEvent> call() {
+                return setPaused(!isPaused());
+            }
+        });
+    }
 
-    /**
-     * Stop playback
-     * @return true if playback stopped successfully and false means that error has occurred during playback stopping.
-     */
     public Observable<PlayerEvent> stop() {
         return Observable.defer(new Func0<Observable<PlayerEvent>>() {
             @Override
@@ -209,8 +222,7 @@ public abstract class RxExoPlayer {
                 if (innerPlayer.getPlaybackState() == STATE_IDLE) {
                     return Observable.just(PlayerEvent.IDLE);
                 } else {
-                    return event(PlayerEvent.IDLE)
-                            .take(1)
+                    return eventOnce(PlayerEvent.IDLE)
                             .doOnSubscribe(new Action0() {
                                 @Override
                                 public void call() {
@@ -223,14 +235,13 @@ public abstract class RxExoPlayer {
     }
 
     public Observable<PlayerEvent> prepare(@NonNull final Uri uri) {
-        return event(PlayerEvent.PREPARING)
+        return eventOnce(PlayerEvent.PREPARING)
                 .concatMap(new Func1<PlayerEvent, Observable<PlayerEvent>>() {
                     @Override
                     public Observable<PlayerEvent> call(PlayerEvent event) {
-                        return event(PlayerEvent.READY);
+                        return eventOnce(PlayerEvent.READY);
                     }
                 })
-                .take(1)
                 .doOnSubscribe(new Action0() {
                     @Override
                     public void call() {
@@ -251,14 +262,13 @@ public abstract class RxExoPlayer {
                 } else if (innerPlayer.getCurrentPosition() == msec) {
                     return Observable.just(PlayerEvent.READY);
                 } else {
-                    return event(PlayerEvent.BUFFERING)
+                    return eventOnce(PlayerEvent.BUFFERING)
                             .concatMap(new Func1<PlayerEvent, Observable<PlayerEvent>>() {
                                 @Override
                                 public Observable<PlayerEvent> call(PlayerEvent event) {
-                                    return event(PlayerEvent.READY);
+                                    return eventOnce(PlayerEvent.READY);
                                 }
                             })
-                            .take(1)
                             .doOnSubscribe(new Action0() {
                                 @Override
                                 public void call() {
@@ -283,9 +293,9 @@ public abstract class RxExoPlayer {
                     public Observable<PlayerEvent> call(PlayerEvent event) {
                         return stop();
                     }
-                })
-                .take(1);
+                });
     }
+    //endregion
 
     // region Delegated methods
 
